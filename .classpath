@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="C:/gurobi752/win64/lib/gurobi.jar" sourcepath="C:/gurobi752/win64/lib/gurobi-javadoc.jar"/>
+	<classpathentry kind="lib" path="GreedyExperimentalDesignJARs/inst/java/ejml-core-0.34.jar"/>
+	<classpathentry kind="lib" path="GreedyExperimentalDesignJARs/inst/java/ejml-ddense-0.34.jar"/>
+	<classpathentry kind="lib" path="GreedyExperimentalDesignJARs/inst/java/ejml-simple-0.34.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
