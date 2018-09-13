@@ -1,10 +1,11 @@
 
+pacman::p_load(ggplot2)
 
-n = 200
+n = 100
 
 sigma_x = 1
 mu_x = 0
-sigma_z = 2
+sigma_z = 0.0001
 mu_z = 0
 
 set.seed(0)
@@ -16,11 +17,11 @@ Sigma_X_inv = solve(var(X))
 
 #results for linear case
 beta_0 = 1
-beta = rep(1, p)
+beta_X = rep(1, p)
 w_0_forced_balance = c(rep(1, n / 2), rep(-1, n / 2))
 
 Nsim = 100
-Nrerand = 1e6
+Nrerand = 1e4
 
 W = matrix(NA, nrow = n, ncol = Nrerand)
 mahal_dists_scaled = array(NA, Nrerand)
@@ -53,7 +54,44 @@ for (w_i in seq(from = 2, to = Nrerand, by = 2)){
   }
 }
 
-# for (nsim in 1 : Nsim){
-#   z = rnorm(n, mu_z, sigma_z)
-#  
-# }
+
+obj_function = array(NA, Nrerand)
+frob_norm_sqs_function = array(NA, Nrerand)
+# APPROX = 2000
+
+#trace out our objective function
+f = X %*% beta_X
+c_const = 1
+
+for (w_i in seq(from = Nrerand, to = 2, by = -10)){
+  # if (w_i > APPROX){
+  #   W_0 = W[, sample(order_of_mahal_dists_scaled[1 : w_i], APPROX)]
+  # } else {
+    W_0 = W[, order_of_mahal_dists_scaled[1 : w_i]]
+  # }
+  
+  sigma_W_0 = var(t(W_0))
+  frob_norm_sqs_function[w_i] = sum(eigen(sigma_W_0)$values^2)
+  obj_function[w_i] = 
+    1 / n^2 * t(f) %*% sigma_W_0 %*% f +
+    1 / n * sigma_z^2 + 
+    c_const * sqrt(
+      0 +
+      2 * sigma_z^2^2 / n^4 * frob_norm_sqs_function[w_i] +
+      4 * sigma_z^2^2 / n^4 * t(f) %*% sigma_W_0^2 %*% f
+    )
+  if (w_i %% 1000 == 0){
+    cat("w_i", w_i, "\n")
+  }
+  # if (frob_norm_sqs_function[w_i] > 2 * n){
+  #   break
+  # }
+}
+
+  ggplot(data.frame(frob_norm_sqs_function = frob_norm_sqs_function, obj_function = obj_function)) +
+    geom_line(aes(x = frob_norm_sqs_function, y = obj_function)) #+ xlim(100, 300) #+ ylim(0.01,0.02)
+
+
+  which.min(obj_function)
+  frob_norm_sqs_function[10]
+# hist(frob_norm_sqs_function, br = 1000,xlim = c(0, 1000))

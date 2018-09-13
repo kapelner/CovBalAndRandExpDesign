@@ -1,0 +1,15 @@
+Package: CovBalAndRandExpDesign
+Type: Package
+Title: Optimal Experimental Design with Covariate Balance while Robust 
+Version: 1.0
+Date: 2018-08-30
+Author: Adam Kapelner, David Azriel and Abba M. Krieger
+Maintainer: Adam Kapelner <kapelner@qc.cuny.edu>
+Description: Computes ...
+License: GPL-3
+Depends:
+    R (>= 3.2.0),
+    GreedyExperimentalDesign (>= 1.3)
+SystemRequirements: Java (>= 7.0)
+Imports: graphics, grDevices, stats
+RoxygenNote: 6.0.1

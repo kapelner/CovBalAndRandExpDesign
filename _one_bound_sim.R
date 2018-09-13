@@ -3,8 +3,11 @@
 z = rnorm(n, 0, sigma_z)
 
 
-if (z_orthog){
+if (exists("z_orthog") && z_orthog){
   z = z - (x %*% z) / sum(x^2) * x
+}
+if (!exists("beta_T")){
+  beta_T = 1
 }
 
 z_norm_sq = sum(z^2)
