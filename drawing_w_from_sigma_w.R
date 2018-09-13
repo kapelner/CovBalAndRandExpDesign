@@ -45,7 +45,7 @@ D
 G = diag(n + 1)
 G[1 : n, 1 : n] = D
 H = sin(pi * G / 2)
-
+H
 
 Nsim = 1000
 

@@ -1,6 +1,5 @@
 options(java.parameters = "-Xmx4000m")
 pacman::p_load(ggplot2, GreedyExperimentalDesign)
-.jaddClassPath("/gurobi801/win64/lib/gurobi.jar")
 NUM_CORES = 3
 
 n = 100
@@ -23,8 +22,8 @@ Sinv = solve(var(X))
 
 N_z_draws = 1000
 N_avg = 500
-N_rand_test = 201 #must be strictly less than N_avg!
-r_approx_opt_greedy_pair_sw = 20000 #must be strictly greater than N_avg!
+N_rand_test = 200 #must be strictly less than N_avg!
+r_approx_opt_greedy_pair_sw = 10000 #must be strictly greater than N_avg!
 alpha = 0.05
 
 #we will be comparing three designs: CRFB, Matching, Optimal.
@@ -70,17 +69,27 @@ for (sigma_z in sigma_zs){
         for (i_avg in 1 : N_avg){
           W[, i_avg] = sample(w_0)
         }
+        W0 = W
+        W0[W0 == -1] = 0
       } else if (design == "matching"){
         for (i_avg in 1 : N_avg){
           for (i_w in seq(2, n, by = 2)){
             W[c(i_w - 1, i_w), i_avg] = sample(c(-1, 1))
           }
         }
+        W0 = W
+        W0[W0 == -1] = 0
       } else if (design == "approx_optimal"){
         rd = initGreedyExperimentalDesignObject(X, r_approx_opt_greedy_pair_sw, wait = TRUE, objective = "mahal_dist", num_cores = NUM_CORES)
         res = resultsGreedySearch(rd, max_vectors = N_avg)
-        W = res$ending_indicTs[, 1 : N_avg]
+        W0 = res$ending_indicTs[, 1 : N_avg]
+        W = W0
         W[W == 0] = -1
+        
+        # mahal_dists = apply(W0, 2, function(w){compute_objective_val(X, w, objective = "mahal_dist")})
+        # hist(log10(mahal_dists), br = 1000)
+        # mean(mahal_dists)
+        # sum(eigen(var(t(W)))$values^2)
       }
       
       #we now record properties of W and z
@@ -91,6 +100,8 @@ for (sigma_z in sigma_zs){
       max_eigenval_sigma_W = max(lambdas)
       W_z_properties[[i_z]][[design]]$max_eigenval_sigma_W = max_eigenval_sigma_W
       W_z_properties[[i_z]][[design]]$frob_norm_sq = sum(lambdas^2)
+      mahal_dists = apply(W0, 2, function(w){compute_objective_val(X, w, objective = "mahal_dist")})      
+      W_z_properties[[i_z]][[design]]$mean_mahal = mean(mahal_dists)
       W_z_properties[[i_z]][[design]]$acc_bias = t(z) %*% sigma_W %*% z
       W_z_properties[[i_z]][[design]]$efron_bound = sum(z^2) * max_eigenval_sigma_W
       
@@ -129,12 +140,12 @@ for (sigma_z in sigma_zs){
     }
     
     power_over_z_draws[i_z, ] = colMeans(null_rejections)
-    cat("iteration")
+    cat("iteration\n")
     print(colMeans(null_rejections, na.rm = TRUE))
     print(W_z_properties[[i_z]])
-    cat("running average")
+    cat("running average\n")
     print(colMeans(power_over_z_draws, na.rm = TRUE))
-    cat("running 5% quantile")
+    cat("running 5% quantile\n")
     print(apply(power_over_z_draws, 2, quantile, 0.05, na.rm = TRUE))
   }
   
