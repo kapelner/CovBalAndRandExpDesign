@@ -1,6 +1,6 @@
 options(java.parameters = "-Xmx4000m")
 pacman::p_load(ggplot2, GreedyExperimentalDesign)
-NUM_CORES = 3
+NUM_CORES = 2
 
 n = 100
 w_0 = c(rep(1, n / 2), rep(-1, n/ 2))
@@ -42,7 +42,7 @@ alpha = 0.05
 #     The proportion of finds is the power for this iteration
 # The average power is computer for the design by averaging over the z_draws.
 
-designs = c("CRFB", "matching", "approx_optimal")
+designs = c("CRFB", "matching", "more_optimal", "kallus_optimal")
 
 all_results_by_sigma_z = list()
 
@@ -79,7 +79,7 @@ for (sigma_z in sigma_zs){
         }
         W0 = W
         W0[W0 == -1] = 0
-      } else if (design == "approx_optimal"){
+      } else if (design == "more_optimal"){
         rd = initGreedyExperimentalDesignObject(X, r_approx_opt_greedy_pair_sw, wait = TRUE, objective = "mahal_dist", num_cores = NUM_CORES)
         res = resultsGreedySearch(rd, max_vectors = N_avg)
         W0 = res$ending_indicTs[, 1 : N_avg]
@@ -90,12 +90,23 @@ for (sigma_z in sigma_zs){
         # hist(log10(mahal_dists), br = 1000)
         # mean(mahal_dists)
         # sum(eigen(var(t(W)))$values^2)
+      } else if (design == "kallus_optimal"){
+        rd = initGreedyExperimentalDesignObject(X, r_approx_opt_greedy_pair_sw, wait = TRUE, objective = "mahal_dist", num_cores = NUM_CORES)
+        res = resultsGreedySearch(rd, max_vectors = 1)
+        W0 = res$ending_indicTs[, 1, drop = FALSE] #get the one best vector
+        W = W0
+        W[W == 0] = -1
       }
       
       #we now record properties of W and z
 
       W_z_properties[[i_z]][[design]] = list()
-      sigma_W = var(t(W))
+      if (design == "kallus_optimal"){
+        sigma_W = W %*% t(W)
+      } else {
+        sigma_W = var(t(W))
+      }
+      
       lambdas = eigen(sigma_W)$values
       max_eigenval_sigma_W = max(lambdas)
       W_z_properties[[i_z]][[design]]$max_eigenval_sigma_W = max_eigenval_sigma_W
@@ -107,7 +118,12 @@ for (sigma_z in sigma_zs){
       
       for (i_avg in 1 : N_avg){
         #get the experimental vector
-        w_experimental = W[, i_avg]
+        if (design == "kallus_optimal"){
+          w_experimental = W[, 1]
+        } else {
+          w_experimental = W[, i_avg]
+        }
+        
         #"run" the experiment
         y = beta_0 + X %*% bbeta + w_experimental * beta_T + z
         
@@ -117,24 +133,52 @@ for (sigma_z in sigma_zs){
         #compute our estimator
         beta_hat_exp = (mean(yT) - mean(yC)) / 2
         
-        #now run the randomization test
-        #first approximate the null distribution
-        Wrand = W[, sample(setdiff(1 : N_avg, i_avg), N_rand_test)]
-        beta_hat_null = array(NA, N_rand_test)
-        for (i_rand in 1 : N_rand_test){
-          w_rand = Wrand[, i_rand]
-          
-          yT_rand = y[w_rand == 1]
-          yC_rand = y[w_rand == -1]
-          
-          #compute our estimator
-          beta_hat_null[i_rand] = (mean(yT_rand) - mean(yC_rand)) / 2
-        }
-        #accept or reject based on alpha level?
-        if (beta_hat_exp > quantile(beta_hat_null, 1 - alpha / 2) || beta_hat_exp < quantile(beta_hat_null, alpha / 2)){
-          null_rejections[i_avg, design] = 1
+        if (design == "kallus_optimal"){
+          #run the bootstrap test
+          beta_hat_boot = array(NA, N_rand_test)
+          for (i_rand in 1 : N_rand_test){
+            #draw a bootstrap sample
+            is_boot = sample(1 : n, n, replace = TRUE)
+            Xboot = X[is_boot, , drop = FALSE]
+            yboot = y[is_boot]
+            
+            rd = initGreedyExperimentalDesignObject(Xboot, r_approx_opt_greedy_pair_sw, wait = TRUE, objective = "mahal_dist", num_cores = NUM_CORES)
+            res = resultsGreedySearch(rd, max_vectors = 1)
+            w_boot = res$ending_indicTs[, 1, drop = FALSE] #get the one best vector
+            w_boot[w_boot == 0] = -1
+            
+            yT_boot = y[w_boot == 1]
+            yC_boot = y[w_boot == -1]
+            
+            #compute our estimator
+            beta_hat_boot[i_rand] = (mean(yT_boot) - mean(yC_boot)) / 2
+          }
+          #accept or reject based on alpha level?
+          if (sum(abs(beta_hat_boot) > abs(beta_hat_exp)) / N_rand_test < alpha){
+            null_rejections[i_avg, design] = 1
+          } else {
+            null_rejections[i_avg, design] = 0
+          }
         } else {
-          null_rejections[i_avg, design] = 0
+          #now run the randomization test
+          #first approximate the null distribution
+          Wrand = W[, sample(setdiff(1 : N_avg, i_avg), N_rand_test)]
+          beta_hat_null = array(NA, N_rand_test)
+          for (i_rand in 1 : N_rand_test){
+            w_rand = Wrand[, i_rand]
+            
+            yT_rand = y[w_rand == 1]
+            yC_rand = y[w_rand == -1]
+            
+            #compute our estimator
+            beta_hat_null[i_rand] = (mean(yT_rand) - mean(yC_rand)) / 2
+          }
+          #accept or reject based on alpha level?
+          if (beta_hat_exp > quantile(beta_hat_null, 1 - alpha / 2) || beta_hat_exp < quantile(beta_hat_null, alpha / 2)){
+            null_rejections[i_avg, design] = 1
+          } else {
+            null_rejections[i_avg, design] = 0
+          }
         }
       }
     }
@@ -154,6 +198,8 @@ for (sigma_z in sigma_zs){
   all_results_by_sigma_z[[key]]$power = colMeans(power_over_z_draws)
   all_results_by_sigma_z[[key]]$power_over_z_draws = power_over_z_draws
   all_results_by_sigma_z[[key]]$W_z_properties = W_z_properties
+  #in case computer restarts...
+  save(all_results_by_sigma_z, file = "all_results_by_sigma_z.RData")
 }
 
 

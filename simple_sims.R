@@ -325,6 +325,8 @@ match_res_iter_obs = data.frame(matrix(NA, nrow = Nsim, ncol = length(colnames_r
 colnames(match_res_iter_obs) = colnames_results
 opt_res_iter_obs = data.frame(matrix(NA, nrow = Nsim, ncol = 2))
 colnames(opt_res_iter_obs) = colnames_results
+worst_res_iter_obs = data.frame(matrix(NA, nrow = Nsim, ncol = 2))
+colnames(worst_res_iter_obs) = colnames_results
 
 r_sq_est = array(NA, Nsim)
 for (nsim in 1 : Nsim){
@@ -468,56 +470,126 @@ for (nsim in 1 : Nsim){
   )
 }
 
-w_star = all_randomizations[res_iter_ord_obs_imb$i[1], ]
-sigma_w_opt = w_star %*% t(w_star)
 
-t(X) %*% sigma_w_opt %*% X / n^2
-sigma_z^2 / n
-t(X) %*% sigma_w_opt %*% X / n^2 + sigma_z^2 / n
+
+# w_star = all_randomizations[res_iter_ord_obs_imb$i[1], ]
+# sigma_w_opt = w_star %*% t(w_star)
+# 
+# t(X) %*% sigma_w_opt %*% X / n^2
+# sigma_z^2 / n
+# t(X) %*% sigma_w_opt %*% X / n^2 + sigma_z^2 / n
 
 mean(opt_res_iter_obs$mse_naive)
+
+
+worst_index = nrow(all_randomizations)
+for (nsim in 1 : Nsim){
+  if (nsim %% 100 == 0){
+    cat("worst nsim: ", nsim, "\n")
+  }
+  
+  #simulate the unobserved features
+  z = rnorm(n, 0, sigma_z)
+  
+  #now sample for optimal
+  tx_est = array(NA, 2)
+  tx_est_regr = array(NA, 2)
+  for (i in (worst_index - 1) : worst_index){ #there are only two worst vectors!
+    indicT = all_randomizations[res_iter_ord_obs_imb$i[i], ]
+    
+    t_idx = indicT == 1
+    c_idx = indicT == -1
+    xT = X[t_idx]
+    xC = X[c_idx]
+    zT = z[t_idx]
+    zC = z[c_idx]
+    
+    y = beta_0 + X %*% bbeta + z + indicT * beta_T
+    # y = beta_0 + z + indicT * beta_T
+    
+    yT = y[t_idx]
+    yC = y[c_idx]
+    
+    tx_est[i] = (mean(yT) - mean(yC)) / 2
+    tx_est_regr[i] = coef(lm(y ~ X + indicT))[3]
+  } 
+  
+  worst_res_iter_obs[nsim, ] = c(
+    mean((tx_est - beta_T)^2),
+    mean((tx_est_regr - beta_T)^2)
+  )
+}
+
+mean(worst_res_iter_obs$mse_naive)
+
 
 #what happened?
 mean(rand_res_iter_obs$mse_naive, na.rm = TRUE)
 mean(match_res_iter_obs$mse_naive, na.rm = TRUE)
 mean(opt_res_iter_obs$mse_naive, na.rm = TRUE)
+mean(worst_res_iter_obs$mse_naive)
 quantile(rand_res_iter_obs$mse_naive, 0.95, na.rm = TRUE)
 quantile(match_res_iter_obs$mse_naive, 0.95, na.rm = TRUE)
 quantile(opt_res_iter_obs$mse_naive, 0.95, na.rm = TRUE)
+quantile(worst_res_iter_obs$mse_naive, 0.95, na.rm = TRUE)
 #calculate the c constants
 (quantile(rand_res_iter_obs$mse_naive, 0.95, na.rm = TRUE) - mean(rand_res_iter_obs$mse_naive, na.rm = TRUE)) / sd(rand_res_iter_obs$mse_naive, na.rm = TRUE)
 (quantile(match_res_iter_obs$mse_naive, 0.95, na.rm = TRUE) - mean(match_res_iter_obs$mse_naive, na.rm = TRUE)) / sd(match_res_iter_obs$mse_naive, na.rm = TRUE)
 (quantile(opt_res_iter_obs$mse_naive, 0.95, na.rm = TRUE) - mean(opt_res_iter_obs$mse_naive, na.rm = TRUE)) / sd(opt_res_iter_obs$mse_naive, na.rm = TRUE)
+(quantile(worst_res_iter_obs$mse_naive, 0.95, na.rm = TRUE) - mean(worst_res_iter_obs$mse_naive, na.rm = TRUE)) / sd(opt_res_iter_obs$mse_naive, na.rm = TRUE)
 
-
-mean(rand_res_iter_obs$mse_regr, na.rm = TRUE)
-mean(match_res_iter_obs$mse_regr, na.rm = TRUE)
-mean(opt_res_iter_obs$mse_regr, na.rm = TRUE)
-quantile(rand_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
-quantile(match_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
-quantile(opt_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
 
 ggplot(data.frame(rand_res_iter_obs)) + 
   geom_density(aes(mse_naive), alpha = 0.3, fill = "red") + 
   geom_density(aes(mse_naive), alpha = 0.3, fill = "blue", data = match_res_iter_obs) +
   geom_density(aes(mse_naive), alpha = 0.3, fill = "green", data = opt_res_iter_obs) + 
+  geom_density(aes(mse_naive), alpha = 0.3, fill = "purple", data = worst_res_iter_obs) + 
   xlim(0, 0.085) + xlab("MSE") +
   geom_vline(xintercept = mean(rand_res_iter_obs$mse_naive), col = "red", alpha = 0.3, lwd = 1) +
-  geom_vline(xintercept = mean(opt_res_iter_obs$mse_naive), col = "green", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = mean(match_res_iter_obs$mse_naive), col = "blue", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = mean(opt_res_iter_obs$mse_naive), col = "green", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = mean(worst_res_iter_obs$mse_naive), col = "purple", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = quantile(rand_res_iter_obs$mse_naive, .95), col = "red", alpha = 0.3, lwd = 1, linetype = "dashed") +
+  geom_vline(xintercept = quantile(match_res_iter_obs$mse_naive, .95), col = "blue", alpha = 0.3, lwd = 1, linetype = "dashed") +
   geom_vline(xintercept = quantile(opt_res_iter_obs$mse_naive, .95), col = "green", alpha = 0.3, lwd = 1, linetype = "dashed") +
-  geom_vline(xintercept = quantile(match_res_iter_obs$mse_naive, .95), col = "blue", alpha = 0.3, lwd = 1, linetype = "dashed")
+  geom_vline(xintercept = quantile(worst_res_iter_obs$mse_naive, .95), col = "purple", alpha = 0.3, lwd = 1, linetype = "dashed")
 
 max(rand_res_iter_obs$mse_naive)
-max(opt_res_iter_obs$mse_naive)
 max(match_res_iter_obs$mse_naive)
+max(opt_res_iter_obs$mse_naive)
+max(worst_res_iter_obs$mse_naive)
+
+#conclusion: matching wins
+
+### investigate regression estimator
+
+
+mean(rand_res_iter_obs$mse_regr, na.rm = TRUE)
+mean(match_res_iter_obs$mse_regr, na.rm = TRUE)
+mean(opt_res_iter_obs$mse_regr, na.rm = TRUE)
+mean(worst_res_iter_obs$mse_regr)
+quantile(rand_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
+quantile(match_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
+quantile(opt_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
+quantile(worst_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
 
 
 ggplot(data.frame(rand_res_iter_obs)) + 
   geom_density(aes(mse_regr), alpha = 0.3, fill = "red") + 
   geom_density(aes(mse_regr), alpha = 0.3, fill = "blue", data = match_res_iter_obs) +
-  geom_density(aes(mse_regr), alpha = 0.3, fill = "green", data = opt_res_iter_obs) + xlim(0, 0.6)
+  geom_density(aes(mse_regr), alpha = 0.3, fill = "green", data = opt_res_iter_obs) + 
+  geom_density(aes(mse_regr), alpha = 0.3, fill = "purple", data = worst_res_iter_obs) + 
+  xlim(0, 0.085) + xlab("MSE") +
+  geom_vline(xintercept = mean(rand_res_iter_obs$mse_regr), col = "red", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = mean(match_res_iter_obs$mse_regr), col = "blue", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = mean(opt_res_iter_obs$mse_regr), col = "green", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = mean(worst_res_iter_obs$mse_regr), col = "purple", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = quantile(rand_res_iter_obs$mse_regr, .95), col = "red", alpha = 0.3, lwd = 1, linetype = "dashed") +
+  geom_vline(xintercept = quantile(match_res_iter_obs$mse_regr, .95), col = "blue", alpha = 0.3, lwd = 1, linetype = "dashed") +
+  geom_vline(xintercept = quantile(opt_res_iter_obs$mse_regr, .95), col = "green", alpha = 0.3, lwd = 1, linetype = "dashed") +
+  geom_vline(xintercept = quantile(worst_res_iter_obs$mse_regr, .95), col = "purple", alpha = 0.3, lwd = 1, linetype = "dashed")
 
-
-#conclusion: matching wins
+max(rand_res_iter_obs$mse_regr)
+max(match_res_iter_obs$mse_regr)
+max(opt_res_iter_obs$mse_regr)
+max(worst_res_iter_obs$mse_regr)
