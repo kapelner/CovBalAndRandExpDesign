@@ -116,29 +116,3 @@ for (sigma_z in sigma_zs){
     geom_vline(xintercept = min_criterions_sigma_z_i[[sigma_z]], col = "black")
   
 }
-
-
-
-
-
-
-
-
-
-sigma_z = 10
-
-
-
-
-
-
-It seems with "reasonable" levels of sigma_z (relative to sigma_x = 1), the answer is always around 70%. It is important to restate what this means again. 70% of the vectors means from optimal all the way up to about 10^-6. This means designs consisting of optimal all the way up to the best of matching considering uniformly spaced vectors on the log10 scale of imbalance (which admittedly is a strange design procedure). The most restricted it gets is when sigma_z = 0.001 (basically R^2 = 100%) and here we see that we don't demand anything better than 43% of the vectors i.e. up to 10^-11 or better in imbalance. This imbalance better than matching but much worse than greedy pair switching. The least restricted is when sigma_z = 10 (basically R^2 = 0%) where we want 94% of the vectors or about 10^-3 in imbalance or better than the worst matching / best CRFB's.
-
-
-
-
-I find this to be an interesting observation.
-
-
-
-Adam

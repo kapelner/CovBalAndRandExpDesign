@@ -35,6 +35,9 @@ match_res_iter_obs = data.frame(matrix(NA, nrow = Nsim, ncol = length(colnames_r
 colnames(match_res_iter_obs) = colnames_results
 opt_res_iter_obs = data.frame(matrix(NA, nrow = NsimR, ncol = 2))
 colnames(opt_res_iter_obs) = colnames_results
+worst_res_iter_obs = data.frame(matrix(NA, nrow = Nsim, ncol = 2))
+colnames(worst_res_iter_obs) = colnames_results
+
 
 r_sq_est = array(NA, Nsim)
 for (nsim in 1 : Nsim){
@@ -159,20 +162,20 @@ mean(match_res_iter_obs$mse_naive)
 
 
 
-NUM_GUROBI_ITER = 1
-gurobi_mult_res = gurobi_min_of_multiple_designs(X, NUM_GUROBI_ITER, time_limit_min = 5, num_cores = NUM_CORES)
-w_star = gurobi_mult_res$indicT
-compute_objective_val(X, w_star, objective = "mahal_dist")
-w_star[w_star == 0] = -1
-w_star_mirrored = rbind(w_star, -w_star)
-mean(X[w_star == 1, ])
-mean(X[w_star == -1, ])
-
-gnoed = initGurobiNumericalOptimizationExperimentalDesignObject(X, time_limit_min = 3, 
-                                                                num_cores = NUM_CORES)
-indicTs = resultsGurobiNumericalOptimizeExperimentalDesign(gnoed)$indicTs
-indicTs
-w_star = indicTs[, 1]
+# NUM_GUROBI_ITER = 1
+# gurobi_mult_res = gurobi_min_of_multiple_designs(X, NUM_GUROBI_ITER, time_limit_min = 5, num_cores = NUM_CORES)
+# w_star = gurobi_mult_res$indicT
+# compute_objective_val(X, w_star, objective = "mahal_dist")
+# w_star[w_star == 0] = -1
+# w_star_mirrored = rbind(w_star, -w_star)
+# mean(X[w_star == 1, ])
+# mean(X[w_star == -1, ])
+# 
+# gnoed = initGurobiNumericalOptimizationExperimentalDesignObject(X, time_limit_min = 3, 
+#                                                                 num_cores = NUM_CORES)
+# indicTs = resultsGurobiNumericalOptimizeExperimentalDesign(gnoed)$indicTs
+# indicTs
+# w_star = indicTs[, 1]
 
 r = 50000
 rd = initGreedyExperimentalDesignObject(X, r, wait = TRUE, objective = "mahal_dist", num_cores = 4)
@@ -187,7 +190,7 @@ mean(X[w_star == 0,])
 w_star[w_star == 0] = -1
 w_star_mirrored = rbind(w_star, -w_star)
 
-source("more_experiments.R")
+# source("more_experiments.R")
 
 # all_w_stars = t(res$ending_indicTs)
 # all_w_stars[all_w_stars == 0] = -1
@@ -231,55 +234,149 @@ for (nsim in 1 : NsimR){
   )
 }
 
-sigma_w_opt = t(w_star_mirrored) %*% w_star_mirrored / nrow(w_star_mirrored)
+# sigma_w_opt = t(w_star_mirrored) %*% w_star_mirrored / nrow(w_star_mirrored)
+# 
+# t(X) %*% sigma_w_opt %*% X / n^2
+# sigma_z^2 / n
+# t(X) %*% sigma_w_opt %*% X / n^2 + sigma_z^2 / n
+# 
+# mean(opt_res_iter_obs$mse_naive, na.rm = T)
 
-t(X) %*% sigma_w_opt %*% X / n^2
-sigma_z^2 / n
-t(X) %*% sigma_w_opt %*% X / n^2 + sigma_z^2 / n
 
-mean(opt_res_iter_obs$mse_naive, na.rm = T)
+###BAD balance vecs
+#let's get some really crappy vectors
+r = 50000
+cr_vecs = complete_randomization_with_forced_balanced(n, r)
+
+w_size = nrow(cr_vecs)
+
+res_iter = data.frame(matrix(NA, nrow = w_size, ncol = 2))
+colnames(res_iter) = c("i", "obs_imbalance")
+
+for (i in 1 : w_size){
+  indicT = cr_vecs[i, ]
+  t_idx = indicT == 1
+  c_idx = indicT == -1
+  xT = X[t_idx]
+  xC = X[c_idx]
+  res_iter[i, ] = c(
+    i,
+    (mean(xT) - mean(xC)) %*% Sinv %*% (mean(xT) - mean(xC))
+  )
+}
+
+#now let's order by observed imbalance
+res_iter_ord_obs_imb = res_iter[order(res_iter$obs_imbalance), ]
+r_worst = 300
+res_iter_ord_obs_imb_worst = res_iter_ord_obs_imb[(r - r_worst) : r, ]
+
+for (nsim in 1 : Nsim){
+  if (nsim %% 100 == 0){
+    cat("worst nsim: ", nsim, "\n")
+  }
+  
+  #simulate the unobserved features
+  z = rnorm(n, 0, sigma_z)
+  
+  #now sample for worst
+  tx_est = array(NA, r_worst)
+  tx_est_regr = array(NA, r_worst)
+  for (i in 1 : r_worst){ #there are only two worst vectors!
+    indicT = cr_vecs[res_iter_ord_obs_imb_worst$i[i], ]
+    
+    t_idx = indicT == 1
+    c_idx = indicT == -1
+    xT = X[t_idx]
+    xC = X[c_idx]
+    zT = z[t_idx]
+    zC = z[c_idx]
+    
+    y = beta_0 + X %*% bbeta + z + indicT * beta_T
+    
+    yT = y[t_idx]
+    yC = y[c_idx]
+    
+    tx_est[i] = (mean(yT) - mean(yC)) / 2
+    tx_est_regr[i] = coef(lm(y ~ X + indicT))[3]
+  } 
+  
+  worst_res_iter_obs[nsim, ] = c(
+    mean((tx_est - beta_T)^2),
+    mean((tx_est_regr - beta_T)^2)
+  )
+}
 
 #what happened?
 mean(rand_res_iter_obs$mse_naive, na.rm = TRUE)
 mean(match_res_iter_obs$mse_naive, na.rm = TRUE)
 mean(opt_res_iter_obs$mse_naive, na.rm = TRUE)
+mean(worst_res_iter_obs$mse_naive)
 quantile(rand_res_iter_obs$mse_naive, 0.95, na.rm = TRUE)
 quantile(match_res_iter_obs$mse_naive, 0.95, na.rm = TRUE)
 quantile(opt_res_iter_obs$mse_naive, 0.95, na.rm = TRUE)
+quantile(worst_res_iter_obs$mse_naive, 0.95, na.rm = TRUE)
 #calculate the c constants
 (quantile(rand_res_iter_obs$mse_naive, 0.95, na.rm = TRUE) - mean(rand_res_iter_obs$mse_naive, na.rm = TRUE)) / sd(rand_res_iter_obs$mse_naive, na.rm = TRUE)
 (quantile(match_res_iter_obs$mse_naive, 0.95, na.rm = TRUE) - mean(match_res_iter_obs$mse_naive, na.rm = TRUE)) / sd(match_res_iter_obs$mse_naive, na.rm = TRUE)
 (quantile(opt_res_iter_obs$mse_naive, 0.95, na.rm = TRUE) - mean(opt_res_iter_obs$mse_naive, na.rm = TRUE)) / sd(opt_res_iter_obs$mse_naive, na.rm = TRUE)
+(quantile(worst_res_iter_obs$mse_naive, 0.95, na.rm = TRUE) - mean(worst_res_iter_obs$mse_naive, na.rm = TRUE)) / sd(opt_res_iter_obs$mse_naive, na.rm = TRUE)
 
-###as a curiosity - what happened with the regression estimator
-mean(rand_res_iter_obs$mse_regr, na.rm = TRUE)
-mean(match_res_iter_obs$mse_regr, na.rm = TRUE)
-mean(opt_res_iter_obs$mse_regr, na.rm = TRUE)
-quantile(rand_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
-quantile(match_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
-quantile(opt_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
 
 ggplot(data.frame(rand_res_iter_obs)) + 
   geom_density(aes(mse_naive), alpha = 0.3, fill = "red") + 
   geom_density(aes(mse_naive), alpha = 0.3, fill = "blue", data = match_res_iter_obs) +
-  geom_density(aes(mse_naive), alpha = 0.3, fill = "green", data = opt_res_iter_obs) +
-  xlim(0, 0.132) + xlab("MSE") +
+  geom_density(aes(mse_naive), alpha = 0.3, fill = "green", data = opt_res_iter_obs) + 
+  geom_density(aes(mse_naive), alpha = 0.3, fill = "yellow", data = worst_res_iter_obs) + 
+  xlim(0, 2) + xlab("MSE") +
   geom_vline(xintercept = mean(rand_res_iter_obs$mse_naive), col = "red", alpha = 0.3, lwd = 1) +
-  geom_vline(xintercept = mean(opt_res_iter_obs$mse_naive), col = "green", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = mean(match_res_iter_obs$mse_naive), col = "blue", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = mean(opt_res_iter_obs$mse_naive), col = "green", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = mean(worst_res_iter_obs$mse_naive), col = "yellow", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = quantile(rand_res_iter_obs$mse_naive, .95), col = "red", alpha = 0.3, lwd = 1, linetype = "dashed") +
+  geom_vline(xintercept = quantile(match_res_iter_obs$mse_naive, .95), col = "blue", alpha = 0.3, lwd = 1, linetype = "dashed") +
   geom_vline(xintercept = quantile(opt_res_iter_obs$mse_naive, .95), col = "green", alpha = 0.3, lwd = 1, linetype = "dashed") +
-  geom_vline(xintercept = quantile(match_res_iter_obs$mse_naive, .95), col = "blue", alpha = 0.3, lwd = 1, linetype = "dashed")
+  geom_vline(xintercept = quantile(worst_res_iter_obs$mse_naive, .95), col = "yellow", alpha = 0.3, lwd = 1, linetype = "dashed")
 
 max(rand_res_iter_obs$mse_naive)
-max(opt_res_iter_obs$mse_naive)
 max(match_res_iter_obs$mse_naive)
+max(opt_res_iter_obs$mse_naive)
+max(worst_res_iter_obs$mse_naive)
+#conclusion: matching wins
+
+
+
+### investigate regression estimator
+
+
+mean(rand_res_iter_obs$mse_regr, na.rm = TRUE)
+mean(match_res_iter_obs$mse_regr, na.rm = TRUE)
+mean(opt_res_iter_obs$mse_regr, na.rm = TRUE)
+mean(worst_res_iter_obs$mse_regr)
+quantile(rand_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
+quantile(match_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
+quantile(opt_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
+quantile(worst_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
 
 
 ggplot(data.frame(rand_res_iter_obs)) + 
   geom_density(aes(mse_regr), alpha = 0.3, fill = "red") + 
   geom_density(aes(mse_regr), alpha = 0.3, fill = "blue", data = match_res_iter_obs) +
-  geom_density(aes(mse_regr), alpha = 0.3, fill = "green", data = opt_res_iter_obs) + xlim(0, 0.6)
+  geom_density(aes(mse_regr), alpha = 0.3, fill = "green", data = opt_res_iter_obs) + 
+  geom_density(aes(mse_regr), alpha = 0.3, fill = "purple", data = worst_res_iter_obs) + 
+  xlim(0, 0.085) + xlab("MSE") +
+  geom_vline(xintercept = mean(rand_res_iter_obs$mse_regr), col = "red", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = mean(match_res_iter_obs$mse_regr), col = "blue", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = mean(opt_res_iter_obs$mse_regr), col = "green", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = mean(worst_res_iter_obs$mse_regr), col = "purple", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = quantile(rand_res_iter_obs$mse_regr, .95), col = "red", alpha = 0.3, lwd = 1, linetype = "dashed") +
+  geom_vline(xintercept = quantile(match_res_iter_obs$mse_regr, .95), col = "blue", alpha = 0.3, lwd = 1, linetype = "dashed") +
+  geom_vline(xintercept = quantile(opt_res_iter_obs$mse_regr, .95), col = "green", alpha = 0.3, lwd = 1, linetype = "dashed") +
+  geom_vline(xintercept = quantile(worst_res_iter_obs$mse_regr, .95), col = "purple", alpha = 0.3, lwd = 1, linetype = "dashed")
+
+max(rand_res_iter_obs$mse_regr)
+max(match_res_iter_obs$mse_regr)
+max(opt_res_iter_obs$mse_regr)
+max(worst_res_iter_obs$mse_regr)
 
 
-#conclusion: matching wins
+

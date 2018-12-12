@@ -45,274 +45,7 @@ for (i in 1 : w_size){
 #now let's order by observed imbalance
 res_iter_ord_obs_imb = res_iter[order(res_iter$obs_imbalance), ]
 
-
-# Nsim = 1000
-# Nsamprand = 100
-# 
-# #create place for simulation results to be stored and appropriately name it
-# rand_res_iter_obs = data.frame(matrix(NA, nrow = Nsamprand * Nsim, ncol = 6))
-# colnames(rand_res_iter_obs) = c("i", "obs_imbalance", "unobs_imbalance", "tx_estimate", "Rsq", "varY")
-# opt_res_iter_obs = data.frame(matrix(NA, nrow = Nsamprand * Nsim, ncol = 6))
-# colnames(opt_res_iter_obs) = c("i", "obs_imbalance", "unobs_imbalance", "tx_estimate", "Rsq", "varY")
-# 
-# 
-# for (nsim in 0 : (Nsim - 1)){
-#   if (nsim %% 100 == 0){
-#     cat("random nsim: ", nsim, "\n")
-#   }
-#   
-#   #simulate the unobserved features
-#   z = rnorm(n, 0, sigma_z)
-#   
-#   #now sample for random
-#   for (i in 1 : Nsamprand){
-#     indicT = all_randomizations[sample(1 : w_size, 1), ]
-#     
-#     t_idx = indicT == 1
-#     c_idx = indicT == -1
-#     xT = X[t_idx]
-#     xC = X[c_idx]
-#     zT = z[t_idx]
-#     zC = z[c_idx]
-#     
-#     y = beta_0 + X %*% bbeta + z + indicT * beta_T
-#     yT = y[t_idx]
-#     yC = y[c_idx]
-#     rand_res_iter_obs[nsim * Nsamprand + i, ] = c(
-#       i,
-#       (mean(xT) - mean(xC)) %*% Sinv %*% (mean(xT) - mean(xC)), 
-#       (mean(zT) - mean(zC))^2, 
-#       (mean(yT) - mean(yC)) / 2,
-#       summary(lm(y ~ X))$r.squared,
-#       var(y)
-#     )
-#   }
-# 
-#   
-# }
-# 
-# 
-# for (nsim in 0 : (Nsim * Nsamprand - 1)){
-#   if (nsim %% 100 == 0){
-#     cat("opt nsim: ", nsim, "\n")
-#   }
-#   
-#   #simulate the unobserved features
-#   z = rnorm(n, 0, sigma_z)
-#   
-#   #now sample for optimal
-#   for (i in 1 : 2){ #there are only two optimal vectors!
-#     indicT = all_randomizations[res_iter_ord_obs_imb$i[i], ]
-#     
-#     t_idx = indicT == 1
-#     c_idx = indicT == -1
-#     xT = x[t_idx]
-#     xC = x[c_idx]
-#     zT = z[t_idx]
-#     zC = z[c_idx]
-#     
-#     y = beta_0 + X %*% bbeta + z + indicT * beta_T
-#     yT = y[t_idx]
-#     yC = y[c_idx]
-#     opt_res_iter_obs[nsim * 2 + i, ] = c(
-#       i,
-#       (mean(xT) - mean(xC)) %*% Sinv %*% (mean(xT) - mean(xC)), 
-#       (mean(zT) - mean(zC))^2, 
-#       (mean(yT) - mean(yC)) / 2,
-#       summary(lm(y ~ X))$r.squared,
-#       var(y)
-#     )
-#   } 
-# }
-# 
-# #what happened?
-# mean(rand_res_iter_obs$Rsq, na.rm = TRUE)
-# mean(opt_res_iter_obs$Rsq, na.rm = TRUE)
-# 
-# rand_res_iter_obs$mse = (rand_res_iter_obs$tx_estimate - beta_T)^2
-# opt_res_iter_obs$mse = (opt_res_iter_obs$tx_estimate - beta_T)^2
-# 
-# mean(rand_res_iter_obs$mse, na.rm = TRUE)
-# mean(opt_res_iter_obs$mse, na.rm = TRUE)
-# quantile(rand_res_iter_obs$mse, 0.95, na.rm = TRUE)
-# quantile(opt_res_iter_obs$mse, 0.95, na.rm = TRUE)
-# 
-# 
-# ggplot(data.frame(rand_res_iter_obs)) + 
-#   geom_density(aes(mse), alpha = 0.3, fill = "red") + 
-#   geom_density(aes(mse), alpha = 0.3, fill = "green", data = opt_res_iter_obs)
-
-
-#conclusion: optimal is better
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Nsim = 5000
-# 
-# #create place for simulation results to be stored and appropriately name it
-# colnames_results = c("obs_imbalance", "unobs_imbalance", "tx_estimate_naive", "tx_estimate_regr", "Rsq")
-# rand_res_iter_obs = data.frame(matrix(NA, nrow = Nsim, ncol = length(colnames_results)))
-# colnames(rand_res_iter_obs) = colnames_results
-# match_res_iter_obs = data.frame(matrix(NA, nrow = Nsim, ncol = length(colnames_results)))
-# colnames(match_res_iter_obs) = colnames_results
-# opt_res_iter_obs = data.frame(matrix(NA, nrow = Nsim, ncol = length(colnames_results)))
-# colnames(opt_res_iter_obs) = colnames_results
-# 
-# 
-# for (nsim in 1 : Nsim){
-#   if (nsim %% 100 == 0){
-#     cat("random nsim: ", nsim, "\n")
-#   }
-#   
-#   #simulate the unobserved features
-#   z = rnorm(n, 0, sigma_z)
-#   
-#   #now sample for random
-#   indicT = all_randomizations[sample(1 : w_size, 1), ]
-#   
-#   t_idx = indicT == 1
-#   c_idx = indicT == -1
-#   xT = X[t_idx]
-#   xC = X[c_idx]
-#   zT = z[t_idx]
-#   zC = z[c_idx]
-#   
-#   y = beta_0 + X %*% bbeta + z + indicT * beta_T
-#   # y = beta_0 + z + indicT * beta_T
-#   
-#   yT = y[t_idx]
-#   yC = y[c_idx]
-#   rand_res_iter_obs[nsim, ] = c(
-#     (mean(xT) - mean(xC)) %*% Sinv %*% (mean(xT) - mean(xC)), 
-#     (mean(zT) - mean(zC))^2, 
-#     (mean(yT) - mean(yC)) / 2,
-#     coef(lm(y ~ X + indicT))[3],
-#     summary(lm(y ~ X))$r.squared
-#   )
-# }
-# 
-# 
-# for (nsim in 1 : Nsim){
-#   if (nsim %% 100 == 0){
-#     cat("matching nsim: ", nsim, "\n")
-#   }
-#   
-#   #simulate the unobserved features
-#   z = rnorm(n, 0, sigma_z)
-#   
-#   #now sample for pairwise matching
-#   indicT = matrix(NA, n, 1)
-#   for (i_w in seq(2, n, by = 2)){
-#     indicT[c(i_w - 1, i_w), 1] = sample(c(-1, 1))
-#   }
-#   
-#   t_idx = indicT == 1
-#   c_idx = indicT == -1
-#   xT = X[t_idx]
-#   xC = X[c_idx]
-#   zT = z[t_idx]
-#   zC = z[c_idx]
-#   
-#   y = beta_0 + X %*% bbeta + z + indicT * beta_T
-#   # y = beta_0 + z + indicT * beta_T
-#   
-#   yT = y[t_idx]
-#   yC = y[c_idx]
-#   match_res_iter_obs[nsim, ] = c(
-#     (mean(xT) - mean(xC)) %*% Sinv %*% (mean(xT) - mean(xC)), 
-#     (mean(zT) - mean(zC))^2, 
-#     (mean(yT) - mean(yC)) / 2,
-#     coef(lm(y ~ X + indicT))[3],
-#     summary(lm(y ~ X))$r.squared
-#   )
-# }
-# 
-# for (nsim in 1 : Nsim){
-#   if (nsim %% 100 == 0){
-#     cat("opt nsim: ", nsim, "\n")
-#   }
-#   
-#   #simulate the unobserved features
-#   z = rnorm(n, 0, sigma_z)
-#   
-#   #now sample for optimal
-#   indicT = all_randomizations[res_iter_ord_obs_imb$i[sample(c(1,2), 1)], ]
-#   
-#   t_idx = indicT == 1
-#   c_idx = indicT == -1
-#   xT = x[t_idx]
-#   xC = x[c_idx]
-#   zT = z[t_idx]
-#   zC = z[c_idx]
-#   
-#   y = beta_0 + X %*% bbeta + z + indicT * beta_T
-#   # y = beta_0 + z + indicT * beta_T
-#   
-#   yT = y[t_idx]
-#   yC = y[c_idx]
-#   opt_res_iter_obs[nsim, ] = c(
-#     (mean(xT) - mean(xC)) %*% Sinv %*% (mean(xT) - mean(xC)), 
-#     (mean(zT) - mean(zC))^2, 
-#     (mean(yT) - mean(yC)) / 2,
-#     coef(lm(y ~ X + indicT))[3],
-#     summary(lm(y ~ X))$r.squared
-#   )
-# }
-# 
-# #what happened?
-# mean(rand_res_iter_obs$Rsq, na.rm = TRUE)
-# mean(match_res_iter_obs$Rsq, na.rm = TRUE)
-# mean(opt_res_iter_obs$Rsq, na.rm = TRUE)
-# 
-# rand_res_iter_obs$mse_naive = (rand_res_iter_obs$tx_estimate_naive - beta_T)^2
-# match_res_iter_obs$mse_naive = (match_res_iter_obs$tx_estimate_naive - beta_T)^2
-# opt_res_iter_obs$mse_naive = (opt_res_iter_obs$tx_estimate_naive - beta_T)^2
-# 
-# rand_res_iter_obs$mse_regr = (rand_res_iter_obs$tx_estimate_regr - beta_T)^2
-# match_res_iter_obs$mse_regr = (match_res_iter_obs$tx_estimate_regr - beta_T)^2
-# opt_res_iter_obs$mse_regr = (opt_res_iter_obs$tx_estimate_regr - beta_T)^2
-# 
-# mean(rand_res_iter_obs$mse_naive, na.rm = TRUE)
-# mean(match_res_iter_obs$mse_naive, na.rm = TRUE)
-# mean(opt_res_iter_obs$mse_naive, na.rm = TRUE)
-# quantile(rand_res_iter_obs$mse_naive, 0.95, na.rm = TRUE)
-# quantile(match_res_iter_obs$mse_naive, 0.95, na.rm = TRUE)
-# quantile(opt_res_iter_obs$mse_naive, 0.95, na.rm = TRUE)
-# 
-# mean(rand_res_iter_obs$mse_regr, na.rm = TRUE)
-# mean(match_res_iter_obs$mse_regr, na.rm = TRUE)
-# mean(opt_res_iter_obs$mse_regr, na.rm = TRUE)
-# quantile(rand_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
-# quantile(match_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
-# quantile(opt_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
-# 
-# 
-# ggplot(data.frame(rand_res_iter_obs)) + 
-#   geom_density(aes(mse_naive), alpha = 0.3, fill = "red") + 
-#   # geom_density(aes(mse), alpha = 0.3, fill = "blue", data = match_res_iter_obs) +
-#   geom_density(aes(mse_naive), alpha = 0.3, fill = "green", data = opt_res_iter_obs)
-#  
-# ggplot(data.frame(rand_res_iter_obs)) + 
-#   geom_density(aes(mse_regr), alpha = 0.3, fill = "red") + 
-#   # geom_density(aes(mse), alpha = 0.3, fill = "blue", data = match_res_iter_obs) +
-#   geom_density(aes(mse_regr), alpha = 0.3, fill = "green", data = opt_res_iter_obs) 
-
-#conclusion: optimal wins
-
-
-
-
+###############START SIM
 
 Nsim = 1000
 Nsamprand = 300
@@ -491,7 +224,7 @@ for (nsim in 1 : Nsim){
   #simulate the unobserved features
   z = rnorm(n, 0, sigma_z)
   
-  #now sample for optimal
+  #now sample for worst
   tx_est = array(NA, 2)
   tx_est_regr = array(NA, 2)
   for (i in (worst_index - 1) : worst_index){ #there are only two worst vectors!
@@ -505,13 +238,12 @@ for (nsim in 1 : Nsim){
     zC = z[c_idx]
     
     y = beta_0 + X %*% bbeta + z + indicT * beta_T
-    # y = beta_0 + z + indicT * beta_T
     
     yT = y[t_idx]
     yC = y[c_idx]
     
-    tx_est[i] = (mean(yT) - mean(yC)) / 2
-    tx_est_regr[i] = coef(lm(y ~ X + indicT))[3]
+    tx_est[i - worst_index + 2] = (mean(yT) - mean(yC)) / 2
+    tx_est_regr[i - worst_index + 2] = coef(lm(y ~ X + indicT))[3]
   } 
   
   worst_res_iter_obs[nsim, ] = c(
@@ -519,8 +251,6 @@ for (nsim in 1 : Nsim){
     mean((tx_est_regr - beta_T)^2)
   )
 }
-
-mean(worst_res_iter_obs$mse_naive)
 
 
 #what happened?
@@ -543,16 +273,16 @@ ggplot(data.frame(rand_res_iter_obs)) +
   geom_density(aes(mse_naive), alpha = 0.3, fill = "red") + 
   geom_density(aes(mse_naive), alpha = 0.3, fill = "blue", data = match_res_iter_obs) +
   geom_density(aes(mse_naive), alpha = 0.3, fill = "green", data = opt_res_iter_obs) + 
-  geom_density(aes(mse_naive), alpha = 0.3, fill = "purple", data = worst_res_iter_obs) + 
-  xlim(0, 0.085) + xlab("MSE") +
+  geom_density(aes(mse_naive), alpha = 0.3, fill = "yellow", data = worst_res_iter_obs) + 
+  xlim(0, 2) + xlab("MSE") +
   geom_vline(xintercept = mean(rand_res_iter_obs$mse_naive), col = "red", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = mean(match_res_iter_obs$mse_naive), col = "blue", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = mean(opt_res_iter_obs$mse_naive), col = "green", alpha = 0.3, lwd = 1) +
-  geom_vline(xintercept = mean(worst_res_iter_obs$mse_naive), col = "purple", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = mean(worst_res_iter_obs$mse_naive), col = "yellow", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = quantile(rand_res_iter_obs$mse_naive, .95), col = "red", alpha = 0.3, lwd = 1, linetype = "dashed") +
   geom_vline(xintercept = quantile(match_res_iter_obs$mse_naive, .95), col = "blue", alpha = 0.3, lwd = 1, linetype = "dashed") +
   geom_vline(xintercept = quantile(opt_res_iter_obs$mse_naive, .95), col = "green", alpha = 0.3, lwd = 1, linetype = "dashed") +
-  geom_vline(xintercept = quantile(worst_res_iter_obs$mse_naive, .95), col = "purple", alpha = 0.3, lwd = 1, linetype = "dashed")
+  geom_vline(xintercept = quantile(worst_res_iter_obs$mse_naive, .95), col = "yellow", alpha = 0.3, lwd = 1, linetype = "dashed")
 
 max(rand_res_iter_obs$mse_naive)
 max(match_res_iter_obs$mse_naive)
@@ -578,16 +308,16 @@ ggplot(data.frame(rand_res_iter_obs)) +
   geom_density(aes(mse_regr), alpha = 0.3, fill = "red") + 
   geom_density(aes(mse_regr), alpha = 0.3, fill = "blue", data = match_res_iter_obs) +
   geom_density(aes(mse_regr), alpha = 0.3, fill = "green", data = opt_res_iter_obs) + 
-  geom_density(aes(mse_regr), alpha = 0.3, fill = "purple", data = worst_res_iter_obs) + 
-  xlim(0, 0.085) + xlab("MSE") +
+  geom_density(aes(mse_regr), alpha = 0.3, fill = "yellow", data = worst_res_iter_obs) + 
+  xlim(0, 1) + xlab("MSE") +
   geom_vline(xintercept = mean(rand_res_iter_obs$mse_regr), col = "red", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = mean(match_res_iter_obs$mse_regr), col = "blue", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = mean(opt_res_iter_obs$mse_regr), col = "green", alpha = 0.3, lwd = 1) +
-  geom_vline(xintercept = mean(worst_res_iter_obs$mse_regr), col = "purple", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = mean(worst_res_iter_obs$mse_regr), col = "yellow", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = quantile(rand_res_iter_obs$mse_regr, .95), col = "red", alpha = 0.3, lwd = 1, linetype = "dashed") +
   geom_vline(xintercept = quantile(match_res_iter_obs$mse_regr, .95), col = "blue", alpha = 0.3, lwd = 1, linetype = "dashed") +
   geom_vline(xintercept = quantile(opt_res_iter_obs$mse_regr, .95), col = "green", alpha = 0.3, lwd = 1, linetype = "dashed") +
-  geom_vline(xintercept = quantile(worst_res_iter_obs$mse_regr, .95), col = "purple", alpha = 0.3, lwd = 1, linetype = "dashed")
+  geom_vline(xintercept = quantile(worst_res_iter_obs$mse_regr, .95), col = "yellow", alpha = 0.3, lwd = 1, linetype = "dashed")
 
 max(rand_res_iter_obs$mse_regr)
 max(match_res_iter_obs$mse_regr)
