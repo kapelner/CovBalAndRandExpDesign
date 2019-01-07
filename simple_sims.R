@@ -6,7 +6,7 @@ p = 1
 
 sigma_x = 1
 mu_x = 0
-sigma_z = 1.5
+sigma_z = 1.5 ###change this to give Figures 1,2,3 and comment our the darkorange
 # sigma_z = 1
 # sigma_z = 0.05 #R^2 = 1
 mu_z = 0
@@ -212,10 +212,11 @@ for (nsim in 1 : Nsim){
 # sigma_z^2 / n
 # t(X) %*% sigma_w_opt %*% X / n^2 + sigma_z^2 / n
 
-mean(opt_res_iter_obs$mse_naive)
+#mean(opt_res_iter_obs$mse_naive)
 
+r_worst = 500
+res_iter_ord_obs_imb_worst = res_iter_ord_obs_imb[(w_size - r_worst + 1) : w_size, ]
 
-worst_index = nrow(all_randomizations)
 for (nsim in 1 : Nsim){
   if (nsim %% 100 == 0){
     cat("worst nsim: ", nsim, "\n")
@@ -225,10 +226,10 @@ for (nsim in 1 : Nsim){
   z = rnorm(n, 0, sigma_z)
   
   #now sample for worst
-  tx_est = array(NA, 2)
-  tx_est_regr = array(NA, 2)
-  for (i in (worst_index - 1) : worst_index){ #there are only two worst vectors!
-    indicT = all_randomizations[res_iter_ord_obs_imb$i[i], ]
+  tx_est = array(NA, r_worst)
+  tx_est_regr = array(NA, r_worst)
+  for (i in 1 : r_worst){
+    indicT = all_randomizations[res_iter_ord_obs_imb_worst$i[i], ]
     
     t_idx = indicT == 1
     c_idx = indicT == -1
@@ -242,8 +243,8 @@ for (nsim in 1 : Nsim){
     yT = y[t_idx]
     yC = y[c_idx]
     
-    tx_est[i - worst_index + 2] = (mean(yT) - mean(yC)) / 2
-    tx_est_regr[i - worst_index + 2] = coef(lm(y ~ X + indicT))[3]
+    tx_est[i] = (mean(yT) - mean(yC)) / 2
+    tx_est_regr[i] = coef(lm(y ~ X + indicT))[3]
   } 
   
   worst_res_iter_obs[nsim, ] = c(
@@ -273,16 +274,16 @@ ggplot(data.frame(rand_res_iter_obs)) +
   geom_density(aes(mse_naive), alpha = 0.3, fill = "red") + 
   geom_density(aes(mse_naive), alpha = 0.3, fill = "blue", data = match_res_iter_obs) +
   geom_density(aes(mse_naive), alpha = 0.3, fill = "green", data = opt_res_iter_obs) + 
-  geom_density(aes(mse_naive), alpha = 0.3, fill = "yellow", data = worst_res_iter_obs) + 
-  xlim(0, 2) + xlab("MSE") +
+  geom_density(aes(mse_naive), alpha = 0.3, fill = "darkorange", data = worst_res_iter_obs) + 
+  xlim(0, 0.6) + xlab("MSE") +
   geom_vline(xintercept = mean(rand_res_iter_obs$mse_naive), col = "red", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = mean(match_res_iter_obs$mse_naive), col = "blue", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = mean(opt_res_iter_obs$mse_naive), col = "green", alpha = 0.3, lwd = 1) +
-  geom_vline(xintercept = mean(worst_res_iter_obs$mse_naive), col = "yellow", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = mean(worst_res_iter_obs$mse_naive), col = "darkorange", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = quantile(rand_res_iter_obs$mse_naive, .95), col = "red", alpha = 0.3, lwd = 1, linetype = "dashed") +
   geom_vline(xintercept = quantile(match_res_iter_obs$mse_naive, .95), col = "blue", alpha = 0.3, lwd = 1, linetype = "dashed") +
   geom_vline(xintercept = quantile(opt_res_iter_obs$mse_naive, .95), col = "green", alpha = 0.3, lwd = 1, linetype = "dashed") +
-  geom_vline(xintercept = quantile(worst_res_iter_obs$mse_naive, .95), col = "yellow", alpha = 0.3, lwd = 1, linetype = "dashed")
+  geom_vline(xintercept = quantile(worst_res_iter_obs$mse_naive, .95), col = "darkorange", alpha = 0.3, lwd = 1, linetype = "dashed")
 
 max(rand_res_iter_obs$mse_naive)
 max(match_res_iter_obs$mse_naive)
@@ -308,16 +309,16 @@ ggplot(data.frame(rand_res_iter_obs)) +
   geom_density(aes(mse_regr), alpha = 0.3, fill = "red") + 
   geom_density(aes(mse_regr), alpha = 0.3, fill = "blue", data = match_res_iter_obs) +
   geom_density(aes(mse_regr), alpha = 0.3, fill = "green", data = opt_res_iter_obs) + 
-  geom_density(aes(mse_regr), alpha = 0.3, fill = "yellow", data = worst_res_iter_obs) + 
-  xlim(0, 1) + xlab("MSE") +
+  geom_density(aes(mse_regr), alpha = 0.3, fill = "darkorange", data = worst_res_iter_obs) + 
+  xlim(0, 0.6) + xlab("MSE") +
   geom_vline(xintercept = mean(rand_res_iter_obs$mse_regr), col = "red", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = mean(match_res_iter_obs$mse_regr), col = "blue", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = mean(opt_res_iter_obs$mse_regr), col = "green", alpha = 0.3, lwd = 1) +
-  geom_vline(xintercept = mean(worst_res_iter_obs$mse_regr), col = "yellow", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = mean(worst_res_iter_obs$mse_regr), col = "darkorange", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = quantile(rand_res_iter_obs$mse_regr, .95), col = "red", alpha = 0.3, lwd = 1, linetype = "dashed") +
   geom_vline(xintercept = quantile(match_res_iter_obs$mse_regr, .95), col = "blue", alpha = 0.3, lwd = 1, linetype = "dashed") +
   geom_vline(xintercept = quantile(opt_res_iter_obs$mse_regr, .95), col = "green", alpha = 0.3, lwd = 1, linetype = "dashed") +
-  geom_vline(xintercept = quantile(worst_res_iter_obs$mse_regr, .95), col = "yellow", alpha = 0.3, lwd = 1, linetype = "dashed")
+  geom_vline(xintercept = quantile(worst_res_iter_obs$mse_regr, .95), col = "darkorange", alpha = 0.3, lwd = 1, linetype = "dashed")
 
 max(rand_res_iter_obs$mse_regr)
 max(match_res_iter_obs$mse_regr)

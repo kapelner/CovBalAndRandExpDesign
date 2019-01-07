@@ -64,7 +64,7 @@ searchTimeElapsed = function(obj){
 #' @export
 compute_objective_val = function(X, indic_T, objective = "abs_sum_diff", inv_cov_X = NULL){
 	X_T = X[indic_T == 1, , drop = FALSE] #coerce as matrix in order to matrix multiply later
-	X_C = X[indic_T == 0, , drop = FALSE] #coerce as matrix in order to matrix multiply later
+	X_C = X[indic_T == -1, , drop = FALSE] #coerce as matrix in order to matrix multiply later
 	X_T_bar = colMeans(X_T)
 	X_C_bar = colMeans(X_C)	
 	

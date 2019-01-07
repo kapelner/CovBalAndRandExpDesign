@@ -25,7 +25,7 @@ Sinv = solve(var(X))
 
 Nsim = 1000
 NsimR = 10000
-Nsamprand = 300
+Nsamprand = 500
 
 #create place for simulation results to be stored and appropriately name it
 colnames_results = c("mse_naive", "mse_regr")
@@ -267,8 +267,15 @@ for (i in 1 : w_size){
 
 #now let's order by observed imbalance
 res_iter_ord_obs_imb = res_iter[order(res_iter$obs_imbalance), ]
-r_worst = 300
-res_iter_ord_obs_imb_worst = res_iter_ord_obs_imb[(r - r_worst) : r, ]
+r_worst = 500
+res_iter_ord_obs_imb_worst = res_iter_ord_obs_imb[(r - r_worst + 1) : r, ]
+
+#check Frobnormsq
+# all_bad = cr_vecs[res_iter_ord_obs_imb_worst$i, ]
+# sum(var(t(all_bad))^2)
+# random_vecs = cr_vecs[3000 : 3500, ]
+# sum(var(t(random_vecs))^2)
+
 
 for (nsim in 1 : Nsim){
   if (nsim %% 100 == 0){
@@ -316,26 +323,27 @@ quantile(match_res_iter_obs$mse_naive, 0.95, na.rm = TRUE)
 quantile(opt_res_iter_obs$mse_naive, 0.95, na.rm = TRUE)
 quantile(worst_res_iter_obs$mse_naive, 0.95, na.rm = TRUE)
 #calculate the c constants
-(quantile(rand_res_iter_obs$mse_naive, 0.95, na.rm = TRUE) - mean(rand_res_iter_obs$mse_naive, na.rm = TRUE)) / sd(rand_res_iter_obs$mse_naive, na.rm = TRUE)
-(quantile(match_res_iter_obs$mse_naive, 0.95, na.rm = TRUE) - mean(match_res_iter_obs$mse_naive, na.rm = TRUE)) / sd(match_res_iter_obs$mse_naive, na.rm = TRUE)
-(quantile(opt_res_iter_obs$mse_naive, 0.95, na.rm = TRUE) - mean(opt_res_iter_obs$mse_naive, na.rm = TRUE)) / sd(opt_res_iter_obs$mse_naive, na.rm = TRUE)
-(quantile(worst_res_iter_obs$mse_naive, 0.95, na.rm = TRUE) - mean(worst_res_iter_obs$mse_naive, na.rm = TRUE)) / sd(opt_res_iter_obs$mse_naive, na.rm = TRUE)
-
+c(
+  (quantile(rand_res_iter_obs$mse_naive, 0.95, na.rm = TRUE) - mean(rand_res_iter_obs$mse_naive, na.rm = TRUE)) / sd(rand_res_iter_obs$mse_naive, na.rm = TRUE),
+  (quantile(match_res_iter_obs$mse_naive, 0.95, na.rm = TRUE) - mean(match_res_iter_obs$mse_naive, na.rm = TRUE)) / sd(match_res_iter_obs$mse_naive, na.rm = TRUE),
+  (quantile(opt_res_iter_obs$mse_naive, 0.95, na.rm = TRUE) - mean(opt_res_iter_obs$mse_naive, na.rm = TRUE)) / sd(opt_res_iter_obs$mse_naive, na.rm = TRUE),
+  (quantile(worst_res_iter_obs$mse_naive, 0.95, na.rm = TRUE) - mean(worst_res_iter_obs$mse_naive, na.rm = TRUE)) / sd(worst_res_iter_obs$mse_naive, na.rm = TRUE)
+)
 
 ggplot(data.frame(rand_res_iter_obs)) + 
   geom_density(aes(mse_naive), alpha = 0.3, fill = "red") + 
   geom_density(aes(mse_naive), alpha = 0.3, fill = "blue", data = match_res_iter_obs) +
   geom_density(aes(mse_naive), alpha = 0.3, fill = "green", data = opt_res_iter_obs) + 
-  geom_density(aes(mse_naive), alpha = 0.3, fill = "yellow", data = worst_res_iter_obs) + 
-  xlim(0, 2) + xlab("MSE") +
+  geom_density(aes(mse_naive), alpha = 0.3, fill = "black", data = worst_res_iter_obs) + 
+  xlim(0, 0.125) + xlab("MSE") +
   geom_vline(xintercept = mean(rand_res_iter_obs$mse_naive), col = "red", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = mean(match_res_iter_obs$mse_naive), col = "blue", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = mean(opt_res_iter_obs$mse_naive), col = "green", alpha = 0.3, lwd = 1) +
-  geom_vline(xintercept = mean(worst_res_iter_obs$mse_naive), col = "yellow", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = mean(worst_res_iter_obs$mse_naive), col = "black", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = quantile(rand_res_iter_obs$mse_naive, .95), col = "red", alpha = 0.3, lwd = 1, linetype = "dashed") +
   geom_vline(xintercept = quantile(match_res_iter_obs$mse_naive, .95), col = "blue", alpha = 0.3, lwd = 1, linetype = "dashed") +
   geom_vline(xintercept = quantile(opt_res_iter_obs$mse_naive, .95), col = "green", alpha = 0.3, lwd = 1, linetype = "dashed") +
-  geom_vline(xintercept = quantile(worst_res_iter_obs$mse_naive, .95), col = "yellow", alpha = 0.3, lwd = 1, linetype = "dashed")
+  geom_vline(xintercept = quantile(worst_res_iter_obs$mse_naive, .95), col = "black", alpha = 0.3, lwd = 1, linetype = "dashed")
 
 max(rand_res_iter_obs$mse_naive)
 max(match_res_iter_obs$mse_naive)
@@ -361,22 +369,28 @@ quantile(worst_res_iter_obs$mse_regr, 0.95, na.rm = TRUE)
 ggplot(data.frame(rand_res_iter_obs)) + 
   geom_density(aes(mse_regr), alpha = 0.3, fill = "red") + 
   geom_density(aes(mse_regr), alpha = 0.3, fill = "blue", data = match_res_iter_obs) +
-  geom_density(aes(mse_regr), alpha = 0.3, fill = "green", data = opt_res_iter_obs) + 
-  geom_density(aes(mse_regr), alpha = 0.3, fill = "purple", data = worst_res_iter_obs) + 
-  xlim(0, 0.085) + xlab("MSE") +
+  # geom_density(aes(mse_regr), alpha = 0.3, fill = "green", data = opt_res_iter_obs) + 
+  geom_density(aes(mse_regr), alpha = 0.3, fill = "black", data = worst_res_iter_obs) + 
+  xlim(0.03, 0.04) + xlab("MSE") +
   geom_vline(xintercept = mean(rand_res_iter_obs$mse_regr), col = "red", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = mean(match_res_iter_obs$mse_regr), col = "blue", alpha = 0.3, lwd = 1) +
-  geom_vline(xintercept = mean(opt_res_iter_obs$mse_regr), col = "green", alpha = 0.3, lwd = 1) +
-  geom_vline(xintercept = mean(worst_res_iter_obs$mse_regr), col = "purple", alpha = 0.3, lwd = 1) +
+  # geom_vline(xintercept = mean(opt_res_iter_obs$mse_regr), col = "green", alpha = 0.3, lwd = 1) +
+  geom_vline(xintercept = mean(worst_res_iter_obs$mse_regr), col = "black", alpha = 0.3, lwd = 1) +
   geom_vline(xintercept = quantile(rand_res_iter_obs$mse_regr, .95), col = "red", alpha = 0.3, lwd = 1, linetype = "dashed") +
   geom_vline(xintercept = quantile(match_res_iter_obs$mse_regr, .95), col = "blue", alpha = 0.3, lwd = 1, linetype = "dashed") +
-  geom_vline(xintercept = quantile(opt_res_iter_obs$mse_regr, .95), col = "green", alpha = 0.3, lwd = 1, linetype = "dashed") +
-  geom_vline(xintercept = quantile(worst_res_iter_obs$mse_regr, .95), col = "purple", alpha = 0.3, lwd = 1, linetype = "dashed")
+  # geom_vline(xintercept = quantile(opt_res_iter_obs$mse_regr, .95), col = "green", alpha = 0.3, lwd = 1, linetype = "dashed") +
+  geom_vline(xintercept = quantile(worst_res_iter_obs$mse_regr, .95), col = "black", alpha = 0.3, lwd = 1, linetype = "dashed")
 
 max(rand_res_iter_obs$mse_regr)
 max(match_res_iter_obs$mse_regr)
 max(opt_res_iter_obs$mse_regr)
 max(worst_res_iter_obs$mse_regr)
-
+#calculate the c constants
+c(
+  (quantile(rand_res_iter_obs$mse_regr, 0.95, na.rm = TRUE) - mean(rand_res_iter_obs$mse_regr, na.rm = TRUE)) / sd(rand_res_iter_obs$mse_regr, na.rm = TRUE),
+  (quantile(match_res_iter_obs$mse_regr, 0.95, na.rm = TRUE) - mean(match_res_iter_obs$mse_regr, na.rm = TRUE)) / sd(match_res_iter_obs$mse_regr, na.rm = TRUE),
+  (quantile(opt_res_iter_obs$mse_regr, 0.95, na.rm = TRUE) - mean(opt_res_iter_obs$mse_regr, na.rm = TRUE)) / sd(opt_res_iter_obs$mse_regr, na.rm = TRUE),
+  (quantile(worst_res_iter_obs$mse_regr, 0.95, na.rm = TRUE) - mean(worst_res_iter_obs$mse_regr, na.rm = TRUE)) / sd(worst_res_iter_obs$mse_regr, na.rm = TRUE)
+)
 
 

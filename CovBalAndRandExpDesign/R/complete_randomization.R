@@ -6,7 +6,7 @@
 #' 
 #' @author Adam Kapelner
 #' @export
-complete_randomization_with_balanced_ns = function(n, r){
+complete_randomization_with_forced_balance = function(n, r){
 	indicTs = matrix(NA, nrow = r, ncol = n)
 	
 	for (nsim in 1 : r){
