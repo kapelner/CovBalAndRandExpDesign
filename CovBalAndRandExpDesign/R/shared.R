@@ -81,4 +81,19 @@ compute_objective_val = function(X, indic_T, objective = "abs_sum_diff", inv_cov
 	}
 }
 
-
+#compute trace of matrix
+tr = function(A){sum(diag(A))}
+#compute squared Frobenius Norm of matrix
+frob_norm_sq = function(A){sum(A^2)}
+#checks for illegal arguments
+optimal_rerandomization_argument_checks = function(W_base_object, estimator, q){
+	if (class(W_base_object) != "W_base_object"){
+		stop("W_base_object must be class type \"W_base_object\".")
+	}
+	if (!(estimator %in% c("linear", "difference_in_means"))){
+		stop("estimator must be either \"linear\" or \"difference_in_means\".")
+	}
+	if (q <= 0 || q >= 1){
+		stop("quantile must be between 0 and 1.")
+	}
+}
