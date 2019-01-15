@@ -1,25 +1,3 @@
-#' Starts the parallelized greedy design search. Once begun, this function cannot be run again.
-#' 
-#' @param obj 		The \code{experimental_design} object that will be running the search
-#' 
-#' @author Adam Kapelner
-#' @export
-startSearch = function(obj){
-	if (.jcall(obj$java_obj, "Z", "began")){
-		stop("Search Already begun.")
-	}
-	.jcall(obj$java_obj, "V", "beginSearch")
-}
-
-#' Stops the parallelized greedy design search. Once stopped, it cannot be restarted.
-#' 
-#' @param obj 		The \code{experimental_design} object that is currently running the search
-#' 
-#' @author Adam Kapelner
-#' @export
-stopSearch = function(obj){
-	.jcall(obj$java_obj, "V", "stopSearch")
-}
 
 #' Generates a design matrix with standardized predictors. Useful for debugging.
 #' 
@@ -38,16 +16,6 @@ generate_stdzied_design_matrix = function(n = 50, p = 1, covariate_gen = rnorm, 
 	apply(X, 2, function(xj){(xj - mean(xj)) / sd(xj)})	
 }
 
-
-#' Returns the number of vectors found by the greedy design search
-#' 
-#' @param obj 		The \code{experimental_design} object that is currently running the search
-#' 
-#' @author Adam Kapelner
-#' @export
-searchTimeElapsed = function(obj){
-	.jcall(obj$java_obj, "I", "timeElapsedInSeconds")
-}
 
 #' Returns the objective value given a design vector as well an an objective function.
 #' This is code duplication since this is implemented within Java. This is only to be

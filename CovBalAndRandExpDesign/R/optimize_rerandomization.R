@@ -39,26 +39,11 @@ optimal_rerandomization_sets = function(X,
 }
 
 
-max_designs = 25000
-n = 100
-p = 10
-X = matrix(rnorm(n * p), nrow = n, ncol = p)
-
-c_vals = seq(1, 10, by = 0.25)
-
-res = list()
-
-for (c_val in c_vals){
-  res[[as.character(c_val)]] = optimal_rerandomization(X, max_designs, c_val = c_val)
-}
-
-#save(res, file = "res_thresholds.RData")
-load("res_thresholds.RData")
-unlist(lapply(res, function(l){l$Q_star}))
-unlist(lapply(res, function(l){l$a_star}))
-unlist(lapply(res, function(l){l$W_star_size}))
 
 
+
+#' Generate Base Assignments and Sorts
+#' 
 #' Generates the base vectors to be used when locating the optimal rerandomization threshold
 #' 
 #' @param X						The data as an \code{n \times p} matrix. 
@@ -79,7 +64,7 @@ unlist(lapply(res, function(l){l$W_star_size}))
 #' 								and the allocation vectors are in 
 #' 		
 #' 
-#' @author AdamLenovo
+#' @author Adam Kapelner
 #' @export
 generate_W_base_and_sort = function(X,
   max_designs = 25000,
@@ -163,13 +148,82 @@ generate_W_base_and_sort = function(X,
 	  ll
 }
 
+#' Plots a summary of a \code{W_base_object} object
+#' 
+#' @param x			The \code{W_base_object} object to be summarized in the plot
+#' @param ...		Unused
+#' 
+#' @author 			Adam Kapelner
+#' @method plot W_base_object
+#' @export
+plot.W_base_object = function(x, ...){	
+	plot(ggplot(data.frame(b = x$imbalance_by_w_sorted)) + 
+			aes(x = b) + 
+			title("Density of Imbalances in Base Strategy") +
+			xlab(x$imbalance_function) +
+			coord_trans(x = "log10") +
+			geom_density())
+}
 
+#' Prints a summary of a \code{W_base_object} object
+#' 
+#' @param x			The \code{W_base_object} object to be summarized in the console
+#' @param ...		Other parameters to pass to the default print function
+#' 
+#' @author 			Adam Kapelner
+#' @method print W_base_object
+#' @export
+print.W_base_object = function(x, ...){	
+	cat("W base strategy with", x$max_designs, "assignments whose imbalances range from",
+			round(min(x$imbalance_by_w_sorted), 3), "to", round(max(x$imbalance_by_w_sorted), 3), 
+			"in", x$imbalance_function, "\n")
+}
+
+#' Prints a summary of a \code{W_base_object} object
+#' 
+#' @param object		The \code{W_base_object} object to be summarized in the console
+#' @param ...			Other parameters to pass to the default summary function
+#' 
+#' @author 				Adam Kapelner
+#' @method summary W_base_object
+#' @export
+summary.W_base_object = function(object, ...){
+	print(object, ...)
+}
+
+
+#' Find Optimal Rerandomization Threshold Exactly
+#' 
+#' Finds the optimal rerandomization threshold based on a user-defined quantile
+#' and a function that generates the non-linear component of the response
+#' 
+#' @param W_base_object			An object that contains the assignments to begin with sorted by 
+#' @param estimator 			"linear" for the covariate-adjusted linear regression estimator (default)
+#' 								or "difference_in_means".
+#' @param q 					The tail criterion's quantile of MSE over z's. The default is 95%. 
+#' @param skip_search_length	In the exhaustive search, how many designs are skipped? Default is 1 for 
+#' 								full exhaustive search through all assignments provided for in \code{W_base_object}.
+#' @param binary_search			If \code{TRUE}, a binary search is employed to find the optimal threshold instead of 
+#' 								an exhaustive search. Default is \code{FALSE}.
+#' @param z_sim_fun 			This function returns vectors of numeric values of size \code{n}. No default is provided.
+#' @param N_z 					The number of times to simulate z's within each strategy.
+#' @param dot_every_x_iters		Print out a dot every this many iterations. The default is 100. Set to
+#' 								\code{NULL} for no printout.
+#' @returnType 					optimal_rerandomization_obj
+#' @return 						A list containing the optimal design threshold, strategy, and
+#' 								other information.
+#' 
+#' @author Adam Kapelner
+#' @export
 optimal_rerandomization_exact = function(
 		W_base_object = W_base_object,
 		estimator = "linear",
 		q = 0.95,
+		skip_search_length = 1,
+		binary_search = FALSE,
 		z_sim_fun,
-		N_z = 1000
+		N_z = 1000,
+		dot_every_x_iters = 100
 ){
 	optimal_rerandomization_argument_checks(W_base_object, estimator, q)
 
@@ -199,9 +253,11 @@ optimal_rerandomization_exact = function(
 	if (estimator == "linear"){
 		w_w_T_P_w_w_T_running_sum = matrix(0, n, n)
 	}
-	for (s in 1 : max_designs){
-		if (s %% 100 == 0){
-			cat(".")
+	for (s in seq(from = 1, to = max_designs, by = skip_search_length)){
+		if (!is.null(dot_every_x_iters)){
+			if (s %% dot_every_x_iters == 0){
+				cat(".")
+			}
 		}
 		W_s = W_base_sort[s : max_designs, , drop = FALSE]
 		w_s = W_base_sort[s, , drop = FALSE]
@@ -247,9 +303,14 @@ optimal_rerandomization_exact = function(
 	)
 	
 	ll = list(
+		type = "exact",
+		q = q,
+		estimator = estimator,
+		z_sim_fun = z_sim_fun,
+		N_z = N_z,
+		imbalance_function = W_base_object$imbalance_function,
 		W_star = W_base_sort[1 : s_star, ],
 		W_star_size = s_star,
-		as = imbalance_by_w_sorted,
 		a_star = imbalance_by_w_sorted[s_star],
 		a_stars = imbalance_by_w_sorted[1 : s_star],
 		all_data_from_run = all_data_from_run,
@@ -259,11 +320,34 @@ optimal_rerandomization_exact = function(
 	ll
 }
 
-
+#' Find Optimal Rerandomization Threshold Exactly
+#' 
+#' Finds the optimal rerandomization threshold based on a user-defined quantile
+#' and a function that generates the non-linear component of the response
+#' 
+#' @param W_base_object			An object that contains the assignments to begin with sorted by 
+#' @param estimator 			"linear" for the covariate-adjusted linear regression estimator (default)
+#' 								or "difference_in_means".
+#' @param q 					The tail criterion's quantile of MSE over z's. The default is 95%. 
+#' @param skip_search_length	In the exhaustive search, how many designs are skipped? Default is 1 for 
+#' 								full exhaustive search through all assignments provided for in \code{W_base_object}.
+#' @param binary_search			If \code{TRUE}, a binary search is employed to find the optimal threshold instead of 
+#' 								an exhaustive search. Default is \code{FALSE}.
+#' @param dot_every_x_iters		Print out a dot every this many iterations. The default is 100. Set to
+#' 								\code{NULL} for no printout.
+#' @returnType 					optimal_rerandomization_obj
+#' @return 						A list containing the optimal design threshold, strategy, and
+#' 								other information.
+#' 
+#' @author Adam Kapelner
+#' @export
 optimal_rerandomization_normality_assumed = function(
 		W_base_object = W_base_object,
 		estimator = "linear",
-		q = 0.95){
+		q = 0.95,
+		skip_search_length = 1,
+		binary_search = FALSE,
+		dot_every_x_iters = 100){
 	optimal_rerandomization_argument_checks(W_base_object, estimator, q)
 	
 	n = W_base_object$n
@@ -292,9 +376,11 @@ optimal_rerandomization_normality_assumed = function(
 	if (estimator == "linear"){
 		w_w_T_P_w_w_T_running_sum = matrix(0, n, n)
 	}
-	for (s in 1 : max_designs){
-		if (s %% 100 == 0){
-			cat(".")
+	for (s in seq(from = 1, to = max_designs, by = skip_search_length)){
+		if (!is.null(dot_every_x_iters)){
+			if (s %% dot_every_x_iters == 0){
+				cat(".")
+			}
 		}
 		W_s = W_base_sort[s : max_designs, , drop = FALSE]
 		w_s = W_base_sort[s, , drop = FALSE]
@@ -340,13 +426,16 @@ optimal_rerandomization_normality_assumed = function(
 	)
 	
 	ll = list(
-			W_star = W_base_sort[1 : s_star, ],
-			W_star_size = s_star,
-			as = imbalance_by_w_sorted,
-			a_star = imbalance_by_w_sorted[s_star],
-			a_stars = imbalance_by_w_sorted[1 : s_star],
-			all_data_from_run = all_data_from_run,
-			Q_star = Q_star
+		type = "normal",
+		estimator = estimator,
+		q = q,
+		imbalance_function = W_base_object$imbalance_function,
+		W_star = W_base_sort[1 : s_star, ],
+		W_star_size = s_star,
+		a_star = imbalance_by_w_sorted[s_star],
+		a_stars = imbalance_by_w_sorted[1 : s_star],
+		all_data_from_run = all_data_from_run,
+		Q_star = Q_star
 	)
 	class(ll) = "optimal_rerandomization_obj"
 	ll
@@ -357,7 +446,10 @@ optimal_rerandomization_approx = function(
 		W_base_object = W_base_object,
 		estimator = "linear",
 		q = 0.95,
-		kappa_z = 0){
+		skip_search_length = 1,
+		binary_search = FALSE,
+		kappa_z = 0,
+		dot_every_x_iters = 100){
 	
 	optimal_rerandomization_argument_checks(W_base_object, estimator, q)
 	
@@ -394,10 +486,13 @@ optimal_rerandomization_approx = function(
 	if (estimator == "linear"){
 	  w_w_T_P_w_w_T_running_sum = matrix(0, n, n)
 	}
-	for (s in 1 : max_designs){
-	  if (s %% 100 == 0){
-	    cat(".")
-	  }
+	for (s in seq(from = 1, to = max_designs, by = skip_search_length)){
+		if (!is.null(dot_every_x_iters)){
+			if (s %% dot_every_x_iters == 0){
+				cat(".")
+			}
+		}
+
 	  W_s = W_base_sort[s : max_designs, , drop = FALSE]
 	  w_s = W_base_sort[s, , drop = FALSE]
 	  w_s_w_s_T = t(w_s) %*% w_s
@@ -432,7 +527,6 @@ optimal_rerandomization_approx = function(
   	        4 * d / sigsq_z * lambda_max
   	    )
 	  }
-
 	  
 	  if (Q_primes[s] < Q_star){
 	    Q_star = Q_primes[s]
@@ -440,7 +534,6 @@ optimal_rerandomization_approx = function(
 	  }
 	}
 	cat("\n")
-	# Q_primes[1:10000]
 
 	all_data_from_run = data.frame(
 	  imbalance_by_w_sorted = imbalance_by_w_sorted, 
@@ -453,9 +546,12 @@ optimal_rerandomization_approx = function(
 	)
 
 	ll = list(
+		type = "approx",
+		estimator = estimator,
+		q = q,
+		imbalance_function = W_base_object$imbalance_function,
 		W_star = W_base_sort[1 : s_star, ],
 		W_star_size = s_star,
-		as = imbalance_by_w_sorted,
 		a_star = imbalance_by_w_sorted[s_star],
 		a_stars = imbalance_by_w_sorted[1 : s_star],
 		all_data_from_run = all_data_from_run,
@@ -465,14 +561,71 @@ optimal_rerandomization_approx = function(
 	ll
 }
 
-#ggplot(all_data_from_run) + 
-#		geom_vline(xintercept = log(imbalance_by_w_sorted[s_star]), col = "green") +
-#		geom_line(aes(x = log(imbalance_by_w_sorted), y = log(Q_primes)), lwd = 2)
-#ggplot(all_data_from_run) + 
-#		geom_vline(xintercept = log(imbalance_by_w_sorted[s_star]), col = "green") +
-#		geom_line(aes(x = log(imbalance_by_w_sorted), y = log(Q_primes)), lwd = 2) +
-#		geom_line(aes(x = log(imbalance_by_w_sorted), y = log(imbalance_by_w_sorted)), col = "blue") +
-#		geom_line(aes(x = log(imbalance_by_w_sorted), y = log(frob_norm_sqs)), col = "red") +
-#		geom_line(aes(x = log(imbalance_by_w_sorted), y = log(tr_gds)), col = "orange") +
-#		geom_line(aes(x = log(imbalance_by_w_sorted), y = log(tr_d_sqs)), col = "purple") + 
-#		geom_line(aes(x = log(imbalance_by_w_sorted), y = log(r_i_sqs)), col = "yellow")
+
+#' Prints a summary of a \code{optimal_rerandomization_obj} object
+#' 
+#' @param x			The \code{optimal_rerandomization_obj} object to be summarized in the console
+#' @param ...		Other parameters to pass to the default print function
+#' 
+#' @author 			Adam Kapelner
+#' @method print optimal_rerandomization_obj
+#' @export
+print.optimal_rerandomization_obj = function(x, ...){	
+	cat("Optimal rerandomization found with", x$W_star_size, "assignments whose imbalances are smaller than",
+			round(x$a_star, 3), "in", x$imbalance_function, "using algorithm type", x$type, "at q =", x$q, "\n")
+}
+
+#' Prints a summary of a \code{optimal_rerandomization_obj} object
+#' 
+#' @param object		The \code{optimal_rerandomization_obj} object to be summarized in the console
+#' @param ...			Other parameters to pass to the default summary function
+#' 
+#' @author 				Adam Kapelner
+#' @method summary optimal_rerandomization_obj
+#' @export
+summary.optimal_rerandomization_obj = function(object, ...){
+	print(object, ...)
+}
+
+#' Plots a summary of a \code{optimal_rerandomization_obj} object
+#' 
+#' @param x			The \code{optimal_rerandomization_obj} object to be summarized in the plot
+#' @param ...		The option \code{all = TRUE} can be passed here for optimal rerandomization 
+#' 					results from algorithm type "approx" to see how all the terms in the criterion behave
+#' 
+#' @author 			Adam Kapelner
+#' @method plot optimal_rerandomization_obj
+#' @export
+plot.optimal_rerandomization_obj = function(x, ...){
+	dots = list(...)
+	if (x$type == "approx" && isTRUE(dots$advanced)){
+		plot(ggplot(x$all_data_from_run) +
+			ggtitle("Optimal rerandomization by Tail Criterion and All Terms", subtitle = "optimal is green line") +
+			xlab(x$imbalance_function) +
+			ylab(paste("Log10 Relative Tail at q =", x$q)) +
+			coord_trans(x = "log10", y= "log10") +
+			geom_line(aes(x = imbalance_by_w_sorted, y = Q_primes)) +
+			geom_line(aes(x = imbalance_by_w_sorted, y = imbalance_by_w_sorted), col = "blue") +
+			geom_line(aes(x = imbalance_by_w_sorted, y = frob_norm_sqs), col = "red") +
+			geom_line(aes(x = imbalance_by_w_sorted, y = tr_gds), col = "orange") +
+			geom_line(aes(x = imbalance_by_w_sorted, y = tr_d_sqs), col = "purple") + 
+			geom_line(aes(x = imbalance_by_w_sorted, y = r_i_sqs), col = "yellow") +			
+			geom_vline(xintercept = log(x$a_star), col = "green"))
+	} else {
+		plot(ggplot(x$all_data_from_run) +
+			ggtitle("Optimal rerandomization by Tail Criterion and All Terms", subtitle = "optimal is green line") +
+			xlab(x$imbalance_function) +
+			ylab(paste("Log10 Relative Tail at q =", x$q)) +
+			coord_trans(x = "log10", y= "log10") +
+			geom_line(aes(x = imbalance_by_w_sorted, y = Q_primes)) +
+			geom_vline(xintercept = x$a_star, col = "green"))
+	}
+
+}
+
+hall_buckley_eagleson_inverse_cdf = function(eigenvalues, q, begin_x = 10, tol = 0.001){
+	x = begin_x
+	uniroot(function(eigenvalues, x){
+		sum(pmin(tab, num_per_bin)) - max_designs
+	}, interval = c(1, max_designs))$root
+}

@@ -9,7 +9,8 @@ Description: Computes ...
 License: GPL-3
 Depends:
     R (>= 3.2.0),
-    GreedyExperimentalDesign (>= 1.3)
+    GreedyExperimentalDesign (>= 1.3),
+    momentchi2 (>= 0.1.5)
 SystemRequirements: Java (>= 7.0)
 Imports: graphics, grDevices, stats
 RoxygenNote: 6.0.1
