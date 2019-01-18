@@ -179,7 +179,7 @@ plot.W_base_object = function(x, ...){
 			ggtitle(title, subtitle = subtitle) +
 			xlab(xlab) +
 			geom_histogram(bins = bins)
-	if (!isFALSE(dots$log10)){
+	if (!is.null(dots$log10) && dots$log10 == FALSE){
 		ggplot_obj = ggplot_obj + scale_x_log10()
 	}
 	
@@ -196,8 +196,8 @@ plot.W_base_object = function(x, ...){
 #' @export
 print.W_base_object = function(x, ...){	
 	cat("W base strategy with", x$max_designs, "assignments whose imbalances range from",
-			round(min(x$imbalance_by_w_sorted), 3), "to", round(max(x$imbalance_by_w_sorted), 3), 
-			"in", x$imbalance_function, "\n")
+			round(log10(min(x$imbalance_by_w_sorted)), 2), "to", round(log10(max(x$imbalance_by_w_sorted)), 2), 
+			"in log10", x$imbalance_function, "\n")
 }
 
 #' Prints a summary of a \code{W_base_object} object
@@ -230,8 +230,13 @@ summary.W_base_object = function(object, ...){
 #' @param N_z 					The number of times to simulate z's within each strategy.
 #' @param dot_every_x_iters		Print out a dot every this many iterations. The default is 100. Set to
 #' 								\code{NULL} for no printout.
+#' @param ...					Additional arguments to be passed to \code{smooth.spline}. If no arguments are specified
+#' 								here, the default smoothing spline sets \code{spar = 0.1}, which seems to work well in 
+#' 								many simulation cases.
+#' 
 #' @return 						A list containing the optimal design threshold, strategy, and
-#' 								other information.
+#' 								other information for both the raw simulation results and a smoothed
+#' 								version using the \code{smooth.spline} function.
 #' 
 #' @author Adam Kapelner
 #' @export
@@ -243,7 +248,8 @@ optimal_rerandomization_exact = function(
 		binary_search = FALSE,
 		z_sim_fun,
 		N_z = 1000,
-		dot_every_x_iters = 100
+		dot_every_x_iters = 100,
+		...
 ){
 	optimal_rerandomization_argument_checks(W_base_object, estimator, q)
 
@@ -261,8 +267,8 @@ optimal_rerandomization_exact = function(
 		I_min_P = I - P
 	}
 	
-	s_star = NULL
-	Q_star = Inf
+	s_star_ex = NULL
+	Q_star_ex = Inf
 	Q_primes = array(NA, max_designs)
 	rel_mse_zs = matrix(NA, nrow = max_designs, ncol = N_z)
 	
@@ -297,18 +303,29 @@ optimal_rerandomization_exact = function(
 		}
 		
 		
-		if (Q_primes[s] < Q_star){
-			Q_star = Q_primes[s]
-			s_star = s
+		if (Q_primes[s] < Q_star_ex){
+			Q_star_ex = Q_primes[s]
+			s_star_ex = s
 		}
 	}
 	cat("\n")
-	# Q_primes[1:10000]
+
+	#do the smoothing now
+	dots = list(...)
+	if (length(dots) == 0){
+		sm = smooth.spline(Q_primes ~ imbalance_by_w_sorted, spar = 0.1)
+	} else {
+		sm = smooth.spline(Q_primes ~ imbalance_by_w_sorted, ...)
+	}
+
+	Q_primes_smoothed = predict(sm, imbalance_by_w_sorted)$y
+	s_star_smooth = which.min(Q_primes_smoothed)
 	
 	all_data_from_run = data.frame(
 		imbalance_by_w_sorted = imbalance_by_w_sorted, 
 		rel_mse_zs = rel_mse_zs,
-		Q_primes = Q_primes
+		Q_primes = Q_primes,
+		Q_primes_smoothed = Q_primes_smoothed
 	)
 	
 	ll = list(
@@ -318,12 +335,17 @@ optimal_rerandomization_exact = function(
 		z_sim_fun = z_sim_fun,
 		N_z = N_z,
 		imbalance_function = W_base_object$imbalance_function,
-		W_star = W_base_sort[1 : s_star, ],
-		W_star_size = s_star,
-		a_star = imbalance_by_w_sorted[s_star],
-		a_stars = imbalance_by_w_sorted[1 : s_star],
-		all_data_from_run = all_data_from_run,
-		Q_star = Q_star
+		W_star_ex = W_base_sort[1 : s_star_ex, ],
+		W_star_ex_size = s_star_ex,
+		a_star_ex = imbalance_by_w_sorted[s_star_ex],
+		a_stars_ex = imbalance_by_w_sorted[1 : s_star_ex],
+		Q_star_ex = Q_star_ex,		
+		W_star_smooth = W_base_sort[1 : s_star_smooth, ],
+		W_star_smooth_size = s_star_smooth,
+		a_star_smooth = imbalance_by_w_sorted[s_star_smooth],
+		a_stars_smooth = imbalance_by_w_sorted[1 : s_star_smooth],
+		Q_star_smooth = min(Q_primes_smoothed),
+		all_data_from_run = all_data_from_run
 	)
 	class(ll) = "optimal_rerandomization_obj"
 	ll
@@ -472,7 +494,13 @@ optimal_rerandomization_tail_approx = function(
 	  Xt = t(X)
 	  XtXinv = solve(Xt %*% X)
 	  XtXinv_eigen <- eigen(XtXinv)
-	  XtXinv_sqrt <- XtXinv_eigen$vectors %*% diag(sqrt(XtXinv_eigen$values)) %*% solve(XtXinv_eigen$vectors)
+	  if (length(XtXinv_eigen$values) == 1){
+		  sqrt_eigenval_diag_matrix = sqrt(XtXinv_eigen$values) #diag function is not robust to this case
+	  } else {
+		  sqrt_eigenval_diag_matrix = diag(sqrt(XtXinv_eigen$values))
+	  }
+	  
+	  XtXinv_sqrt <- XtXinv_eigen$vectors %*% sqrt_eigenval_diag_matrix %*% solve(XtXinv_eigen$vectors)
 	  X_orth = X %*% XtXinv_sqrt
 	  X_orth_T = t(X_orth)
 	  P = X %*% XtXinv %*% Xt
@@ -574,9 +602,19 @@ optimal_rerandomization_tail_approx = function(
 #' @author 			Adam Kapelner
 #' @method print optimal_rerandomization_obj
 #' @export
-print.optimal_rerandomization_obj = function(x, ...){	
-	cat("Optimal rerandomization found with", x$W_star_size, "assignments whose imbalances are smaller\nthan",
-			round(x$a_star, 3), "in", x$imbalance_function, "using algorithm type", x$type, "at q =", x$q, "\n")
+print.optimal_rerandomization_obj = function(x, ...){
+	cat("Optimal rerandomization found with", 
+			x$W_star_size, "assignments (i.e.", 
+			round(x$W_star_size / length(x$all_data_from_run$imbalances_by_w_sorted) * 100), 
+			"% of base strategy) whose imbalances are smaller\nthan",
+			round(ifelse(x$type == "exact", x$a_star_ex, x$a_star), 3), 
+			"in", 
+			x$imbalance_function, 
+			"using algorithm type", 
+			x$type, 
+			"at q =", 
+			x$q, 
+			"\n")
 }
 
 #' Prints a summary of a \code{optimal_rerandomization_obj} object
@@ -609,7 +647,12 @@ plot.optimal_rerandomization_obj = function(x, ...){
 		title = dots$title
 	}
 	if (is.null(dots$subtitle)){
-		subtitle = "optimal indicated by green line"
+		if (x$type == "exact"){
+			subtitle = "optimal indicated by green line and the yellow line is the smoothed estimate"
+		} else {
+			subtitle = "optimal indicated by green line"
+		}
+		
 	} else {
 		subtitle = dots$subtitle
 	}
@@ -640,6 +683,17 @@ plot.optimal_rerandomization_obj = function(x, ...){
 			geom_line(aes(x = imbalance_by_w_sorted, y = tr_d_sqs), col = "purple") + 
 			geom_line(aes(x = imbalance_by_w_sorted, y = r_i_sqs), col = "yellow") +			
 			geom_vline(xintercept = log(x$a_star), col = "green"))
+	} else if (x$type == "exact"){		
+		plot(ggplot(x$all_data_from_run) +
+				ggtitle(title, subtitle = subtitle) +
+				xlab(xlab) +
+				ylab(ylab) +
+				scale_x_log10() +
+				scale_y_log10() +
+				geom_line(aes(x = imbalance_by_w_sorted, y = Q_primes)) +
+				geom_line(aes(x = imbalance_by_w_sorted, y = Q_primes_smoothed), col = "yellow", lwd = 1) +
+				geom_vline(xintercept = x$a_star_ex, col = "green") +
+				geom_vline(xintercept = x$a_star_smooth, col = "yellow"))
 	} else {
 		plot(ggplot(x$all_data_from_run) +
 			ggtitle(title, subtitle = subtitle) +
